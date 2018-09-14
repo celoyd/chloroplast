@@ -23,7 +23,7 @@ After installing, here’s the easiest way to see something pretty:
 
 3. Round down to the nearest minute ending in 7 or 2, so `2018 256 17 37`. If that’s less than about 5 minutes ago, go back to the previous one. That’s `2018 256 17 32`. 
 
-4. Run `./rgb_frame.sh C 2018 256 17 32 test.tif` . `C` means the contiguous UC frame, and `test.tif` is your target file. You should see a lot of output as it starts downloading and working.
+4. Run `./rgb_frame.sh C 2018 256 17 32 test.tif` . `C` means the contiguous US frame, and `test.tif` is your target file. You should see a lot of output as it starts downloading and working.
 
 If everything worked, you will now have a reasonable RGB image in `test.tif`, plus an intermediate file called `20182561732.rgb.tif`, which has no color formula applied.
 
