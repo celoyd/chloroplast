@@ -7,9 +7,12 @@ This is late alpha to early beta quality. Many, many things about it will change
 Dependencies include but are not necessarily limited to:
 
 - `awscli` (and its CLI: `aws` should work in your terminal)
-- `rasterio` (ditto `rio` ditto); this will also bring in `gdal`
+- `rasterio` and `rio-mucho` (ditto `rio` ditto)
 - `netCDF4`
 - `ImageMagick` as a system utility (soon to be replacaed by `rio-color`)
+- `jq` as a system utility.
+- GNU `parallel` (_not_ the one in `moreutils`) as a system utility
+- `gdal` (package may be called `gdal-bin`) as a system utility
 
 After installing, here’s the easiest way to see something pretty:
 
