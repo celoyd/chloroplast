@@ -6,6 +6,7 @@ This is late alpha to early beta quality. Many, many things about it will change
 
 Dependencies include but are not necessarily limited to:
 
+- Python 3.6+
 - `awscli` (and its CLI: `aws` should work in your terminal)
 - `rasterio` and `rio-mucho` (ditto `rio` ditto)
 - `netCDF4`
