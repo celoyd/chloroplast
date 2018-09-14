@@ -1,6 +1,6 @@
 # chloroplast
 
-Tools for working with data from the ABI sensor on GOES-R satellites in Python and shell.
+Tools for working with data from the ABI sensor on GOES-R satellites in Python and shell. (Chloroplasts make things green.)
 
 This is late alpha to early beta quality. Many, many things about it will change. Documentation may be missing or wrong. Installation and dependencies, in particular, are under-documented.
 
