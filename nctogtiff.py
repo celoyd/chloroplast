@@ -1,6 +1,8 @@
-# python nctogtiff.tiff in.nc out.tif
-# Convert a GOES-16 netCDF's Rad (radience) field to a geotiff.
+# python nctogtiff.py in.nc out.tif
+# Convert a GOES-16 netCDF's Rad (radiance) field to a geotiff.
+
 # This is a fairly weird/opinionated script. Big gotchas:
+#
 # 1. We use both the netCDF library and rasterio, even through
 #    we could make do with either one alone. netCDF reads out
 #    the data much faster (bypassing GDAL’s driver, which is
@@ -11,11 +13,13 @@
 #    form, letting us skip an explicit conversion from the way
 #    the netCDF stores it (which I would not trust myself to
 #    implement robustly anyway).
+#
 # 2. The scaleup_factor is just an arbitrary number that seems
-#    to scale real-world radience values well into the uint16
+#    to scale real-world radiance values well into the uint16
 #    valid data range. It might lead to quantization for a
 #    file with very small values, or overflow for one with very
-#    large values. So watch out.
+#    large values. So watch out, especially outside the visible.
+#
 # 3. We do a little dance to read the data out upside-down.
 #    Output is south-up (but correctly georeferenced, so it
 #    easily reprojects to north-up). Ideally (TODO), we would
