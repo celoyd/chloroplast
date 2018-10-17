@@ -72,7 +72,7 @@ meta.update(
         "height": height,
         "count": 1,
         "dtype": np.uint16,
-        "compression": "deflate",
+        "compress": "deflate",
         # "transform": newaff
     }
 )
