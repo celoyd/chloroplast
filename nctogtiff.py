@@ -33,7 +33,7 @@ from netCDF4 import Dataset
 from affine import Affine
 
 
-def nctogtiff(srcf, destf):
+def nctogtiff(srcf, dstf):
     # Arbitrary scaling factor to store smallish values in a
     # uint16 packages without excessive quantization:
     scaleup_factor = 64
