@@ -10,34 +10,35 @@ from datetime import datetime
 import boto3
 
 from nctogtiff import nctogtiff
+from weight import preprocess
 
 class FetchGOES(object):
+    BANDS = {
+        1: 'blu',
+        2: 'red',
+        3: 'nir',
+    }
+
     def process(self):
         self.parse_arguments()
         if not self.date:
             self.get_last_frame_time()
 
-        bucket = self.get_s3_bucket()
-        bands = {
-            1: 'blu',
-            2: 'red',
-            3: 'nir',
-        }
+        start_time = f"{self.year}{self.doy:03}{self.hour:02}{self.minute:02}"
 
-        for band in bands.keys():
+        bucket = self.get_s3_bucket()
+
+        for band in self.BANDS.keys():
             remote_file = self.list_prefix(bucket, band)
-            self.get_file(remote_file, bands[band])
+            self.get_file(remote_file, self.BANDS[band])
 
         cwd = os.path.dirname(os.path.realpath(__file__))
-        print(f"cwd is {cwd}")
 
-        for band in bands.values():
-            start_time = f"{self.year}{self.doy:03}{self.hour:02}{self.minute:02}"
-
+        for band in self.BANDS.values():
             # TODO this should be parallelised
             source = f"{start_time}.{band}.nc"
             intermediate = f"{start_time}.{band}.toa.tif"
-            if not os.path.exists(intermediate) and not os.path.isfile(intermediate):
+            if self.file_missing(intermediate):
                 print(f"Converting .nc to .tif for {band}")
                 nctogtiff(source, intermediate)
             # if not self.keep # keep intermediates
@@ -45,13 +46,46 @@ class FetchGOES(object):
 
             # TODO parallel -j3
             # TODO convert to Python
-            # warped = f"{start_time}.{band}.toa.resized.tif"
-            # command = f"gdalwarp -wm 1000 -r average -tr 1002.0086577437706 1002.0086577437706 {cwd}/{intermediate} {cwd}/{warped}"
-            # print(f"Converting .nc to .tif for {band}")
-            # subprocess.run(command)
+            warped = f"{start_time}.{band}.toa.resized.tif"
+            command = ["gdalwarp", "-wm", "1000", "-r", "average", "-tr", "1002.0086577437706",
+                    "1002.0086577437706", intermediate, warped]
+            if self.file_missing(warped):
+                print(f"Converting .tif to .resized.tif for {band}")
+                subprocess.run(command, cwd=cwd)
             # os.remove(intermediate)
 
-        print("STOPPED")
+        # weight
+        (blu, red, nir) = [f"{start_time}.{band}.toa.resized.tif" for band in self.BANDS.values()]
+        nr = f"{start_time}.nr.tif"
+        grn = f"{start_time}.nr.tif"
+        rgb = f"{start_time}.rgb.tif"
+        out = f"{start_time}.tif"       # _or_ self.output
+
+        if self.file_missing(nr):
+            print(f"Composing nir, red to nr")
+            preprocess(nir, red, nr, '1:3')
+        if self.file_missing(grn):
+            print(f"Composing nr, blu to grn")
+            preprocess(nr, blu, grn, '4:8')
+
+        # TODO convert to rasterio API calls
+        command = ['rio', 'stack', '--overwrite', '--rgb', '--co',
+                   'compress=lzw', red, grn, blu, rgb]
+        if self.file_missing(rgb):
+            print(f"Stacking bands")
+            subprocess.run(command, cwd=cwd)
+
+        # TODO replace convert with rio (?)
+        command = ['convert', '-gamma', '1.5', '-sigmoidal-contrast', '10,10%',
+                   '-modulate', '100,150', '-channel', 'B', '-gamma', '0.55',
+                   '-channel', 'G', '-gamma', '0.7', '+channel', '-gamma', '0.7',
+                   rgb, out]
+
+        if self.file_missing(out):
+            print(f"Fixing colours")
+            subprocess.run(command, cwd=cwd)
+
+        print(f"Done - {out}")
 
     def parse_arguments(self):
         self.parser = argparse.ArgumentParser(description='Output time of last GOES frame')
@@ -60,15 +94,19 @@ class FetchGOES(object):
         self.parser.add_argument('date', nargs=argparse.REMAINDER,
                                   help='Date, in format year day_of_year hour day')
 
-        # add satellite argument (flag?)
-        # add 'leave_downloads' argument?
-        # add verbosity flag
+        # + add output filename optional argument
+        # + add satellite argument (flag?)
+        # ? add 'leave_downloads' argument
+        # ? add verbosity flag
 
         self.parser.parse_args(namespace=self)
 
         if self.date:
             (self.year, self.doy, self.hour, self.minute) = [int(v) for v in self.date]
             print("Set date from command line arguments")
+
+    def file_missing(self, path):
+        return (not os.path.exists(path) and not os.path.isfile(path))
 
     def get_last_frame_time(self):
         """ Gets the time of the last frame of a given type
@@ -122,6 +160,5 @@ class FetchGOES(object):
 
 
 if __name__ == '__main__':
-    g = FetchGOES()
-    g.process()
+    FetchGOES().process()
 
