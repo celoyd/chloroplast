@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import subprocess
 import sys
 
 from datetime import datetime
@@ -11,6 +12,47 @@ import boto3
 from nctogtiff import nctogtiff
 
 class FetchGOES(object):
+    def process(self):
+        self.parse_arguments()
+        if not self.date:
+            self.get_last_frame_time()
+
+        bucket = self.get_s3_bucket()
+        bands = {
+            1: 'blu',
+            2: 'red',
+            3: 'nir',
+        }
+
+        for band in bands.keys():
+            remote_file = self.list_prefix(bucket, band)
+            self.get_file(remote_file, bands[band])
+
+        cwd = os.path.dirname(os.path.realpath(__file__))
+        print(f"cwd is {cwd}")
+
+        for band in bands.values():
+            start_time = f"{self.year}{self.doy:03}{self.hour:02}{self.minute:02}"
+
+            # TODO this should be parallelised
+            source = f"{start_time}.{band}.nc"
+            intermediate = f"{start_time}.{band}.toa.tif"
+            if not os.path.exists(intermediate) and not os.path.isfile(intermediate):
+                print(f"Converting .nc to .tif for {band}")
+                nctogtiff(source, intermediate)
+            # if not self.keep # keep intermediates
+            # os.remove(source)
+
+            # TODO parallel -j3
+            # TODO convert to Python
+            # warped = f"{start_time}.{band}.toa.resized.tif"
+            # command = f"gdalwarp -wm 1000 -r average -tr 1002.0086577437706 1002.0086577437706 {cwd}/{intermediate} {cwd}/{warped}"
+            # print(f"Converting .nc to .tif for {band}")
+            # subprocess.run(command)
+            # os.remove(intermediate)
+
+        print("STOPPED")
+
     def parse_arguments(self):
         self.parser = argparse.ArgumentParser(description='Output time of last GOES frame')
         # TODO limit to F, C, M
@@ -18,6 +60,7 @@ class FetchGOES(object):
         self.parser.add_argument('date', nargs=argparse.REMAINDER,
                                   help='Date, in format year day_of_year hour day')
 
+        # add satellite argument (flag?)
         # add 'leave_downloads' argument?
         # add verbosity flag
 
@@ -74,41 +117,11 @@ class FetchGOES(object):
         start_time = f"{self.year}{self.doy:03}{self.hour:02}{self.minute:02}"
         dest = f"{start_time}.{channel}.nc"
 
-        if not os.path.exists(dest) and os.path.isfile(dest):
+        if not os.path.exists(dest) and not os.path.isfile(dest):
             object = self.s3.Object(self.bucket_name, filename).download_file(dest)
 
-    def toa(self):
-        #granule=$(basename $1 .nc)
-        #python nctogtiff.py $1 $granule.toa.tif && rm $1
-        
 
 if __name__ == '__main__':
     g = FetchGOES()
-    g.parse_arguments()
-    if not g.date:
-        g.get_last_frame_time()
-
-    bucket = g.get_s3_bucket()
-    bands = {
-        1: 'blu',
-        2: 'red',
-        3: 'nir',
-    }
-
-    for band in bands.keys():
-        remote_file = g.list_prefix(bucket, band)
-        g.get_file(remote_file, bands[band])
-
-    for band in band.values():
-        # TODO this should be parallelised
-        source = f"{start_time}.{band}.nc"
-        dest = f"{start_time}.{band}.toa.tif"
-        nctogtiff(source, dest)
-
-        # TODO parallel -j3
-        # TODO convert to Python
-        warped = f"{start_time}.{band}.toa.resized.tif"
-        command = f"gdalwarp -wm 1000 -r average -tr 1002.0086577437706 1002.0086577437706 {dest} {warped}"
-        subprocess.run(command)
-
+    g.process()
 
