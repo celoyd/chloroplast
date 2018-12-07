@@ -33,80 +33,84 @@ from netCDF4 import Dataset
 from affine import Affine
 
 
-# Arbitrary scaling factor to store smallish values in a
-# uint16 packages without excessive quantization:
-scaleup_factor = 64
-
-srcf, dstf = argv[1:]
-
-# Use rasterio to get the georeferencing:
-with rio.open(f'NETCDF:"{srcf}":Rad') as rio_src:
-    meta = rio_src.profile
-
-nc = Dataset(srcf, fill_value=False)
-# Use netCDF to get the data scaled to PN:
-src = nc.variables["Rad"]
-nodata = src._FillValue
-
-height, width = src.shape[:2]
-
-# The raw files have odd shapes, so we set some odd block
-# sizes. TODO: test different block sizes and clean this up.
-bs = 500 * 2
-if width % bs != 0:
-    bs = 904
-if width in (10848, 21696):
-    bs = 678 * 2
-
-assert width % bs == 0
-assert height % bs == 0
-
-width_block_count = int(width / bs)
-height_block_count = int(height / bs)
+def nctogtiff(srcf, destf):
+    # Arbitrary scaling factor to store smallish values in a
+    # uint16 packages without excessive quantization:
+    scaleup_factor = 64
 
 
-meta.update(
-    {
-        "driver": "GTiff",
-        "width": width,
-        "height": height,
-        "count": 1,
-        "dtype": np.uint16,
-        "compress": "deflate",
-        # "transform": newaff
-    }
-)
+    # Use rasterio to get the georeferencing:
+    with rio.open(f'NETCDF:"{srcf}":Rad') as rio_src:
+        meta = rio_src.profile
+
+    nc = Dataset(srcf, fill_value=False)
+    # Use netCDF to get the data scaled to PN:
+    src = nc.variables["Rad"]
+    nodata = src._FillValue
+
+    height, width = src.shape[:2]
+
+    # The raw files have odd shapes, so we set some odd block
+    # sizes. TODO: test different block sizes and clean this up.
+    bs = 500 * 2
+    if width % bs != 0:
+        bs = 904
+    if width in (10848, 21696):
+        bs = 678 * 2
+
+    assert width % bs == 0
+    assert height % bs == 0
+
+    width_block_count = int(width / bs)
+    height_block_count = int(height / bs)
 
 
-def scale(n):
-    # We reserve 0 for nodata, slightly fudging truly 0 pixels,
-    # but this appears to be under the noise floor anyway.
-    # (TODO: check that "appears" on a wide range of data.)
-    sn = np.clip((n * scaleup_factor), 1, 65535).astype(np.uint16)
-    sn[n == nodata] = 0
-    return sn
-
-
-def flip_window(w):
-    # Turn a slice into a window, and also reflect it vertically
-    # in the list of rows of windows (e.g., the top left slice becomes
-    # the bottom left window):
-    m = Window.from_slices((height - w[0][1], height - w[0][0]), (w[1][0], w[1][1]))
-    return m
-
-
-with rio.open(dstf, "w", **meta) as dst:
-
-    slices = (
-        ((v * bs, (v + 1) * bs), (h * bs, (h + 1) * bs))
-        # This order is important for speed:
-        for v in range(height_block_count)
-        for h in range(width_block_count)
+    meta.update(
+        {
+            "driver": "GTiff",
+            "width": width,
+            "height": height,
+            "count": 1,
+            "dtype": np.uint16,
+            "compress": "deflate",
+            # "transform": newaff
+        }
     )
 
-    for sl in slices:
-        rad = src[sl[0][0] : (sl[0][1]), sl[1][0] : (sl[1][1])]
-        rad = scale(np.array(rad))
-        rad = np.flipud(rad)
-        w = flip_window(sl)
-        dst.write(rad, 1, window=w)
+
+    def scale(n):
+        # We reserve 0 for nodata, slightly fudging truly 0 pixels,
+        # but this appears to be under the noise floor anyway.
+        # (TODO: check that "appears" on a wide range of data.)
+        sn = np.clip((n * scaleup_factor), 1, 65535).astype(np.uint16)
+        sn[n == nodata] = 0
+        return sn
+
+
+    def flip_window(w):
+        # Turn a slice into a window, and also reflect it vertically
+        # in the list of rows of windows (e.g., the top left slice becomes
+        # the bottom left window):
+        m = Window.from_slices((height - w[0][1], height - w[0][0]), (w[1][0], w[1][1]))
+        return m
+
+
+    with rio.open(dstf, "w", **meta) as dst:
+
+        slices = (
+            ((v * bs, (v + 1) * bs), (h * bs, (h + 1) * bs))
+            # This order is important for speed:
+            for v in range(height_block_count)
+            for h in range(width_block_count)
+        )
+
+        for sl in slices:
+            rad = src[sl[0][0] : (sl[0][1]), sl[1][0] : (sl[1][1])]
+            rad = scale(np.array(rad))
+            rad = np.flipud(rad)
+            w = flip_window(sl)
+            dst.write(rad, 1, window=w)
+
+if __name__ == '__main__':
+    srcf, dstf = argv[1:]
+    nctogtiff(srcf, dstf)
