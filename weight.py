@@ -19,16 +19,21 @@ def weight(ab, window, ij, g):
     return weighted.astype(g["dtype"])
 
 
-processes = 4
+def preprocess(file1, file2, output, ratio):
+    processes = 4
 
-g = {"dtype": np.uint16, "weights": list(map(float, argv[2].split(":")))}
+    g = {"dtype": np.uint16, "weights": list(map(float, ratio.split(":")))}
 
-with rio.open(argv[1]) as src:
-    windows = [[window, ij] for ij, window in src.block_windows()]
-    options = src.profile
-    options.update({"count": 1, "compress": "lzw"})
+    with rio.open(file1) as src:
+        windows = [[window, ij] for ij, window in src.block_windows()]
+        options = src.profile
+        options.update({"count": 1, "compress": "lzw"})
 
-with riomucho.RioMucho(
-    [argv[1], argv[3]], argv[4], weight, windows=windows, global_args=g, options=options
-) as mucho:
-    mucho.run(processes)
+    with riomucho.RioMucho(
+        [file1, file2], output, weight, windows=windows, global_args=g, options=options
+    ) as mucho:
+        mucho.run(processes)
+
+if __name__ == '__main__':
+    file1, ratio, file2, output = argv[1:]
+    preprocess(file1, file2, output, ratio)
