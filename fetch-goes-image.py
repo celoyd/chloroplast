@@ -42,7 +42,7 @@ class FetchGOES(object):
                 print(f"Converting .nc to .tif for {band}")
                 nctogtiff(source, intermediate)
             # if not self.keep # keep intermediates
-            # os.remove(source)
+            os.remove(source)
 
             # TODO parallel -j3
             # TODO convert to Python
@@ -52,12 +52,12 @@ class FetchGOES(object):
             if self.file_missing(warped):
                 print(f"Converting .tif to .resized.tif for {band}")
                 subprocess.run(command, cwd=cwd)
-            # os.remove(intermediate)
+            os.remove(intermediate)
 
         # weight
         (blu, red, nir) = [f"{start_time}.{band}.toa.resized.tif" for band in self.BANDS.values()]
         nr = f"{start_time}.nr.tif"
-        grn = f"{start_time}.nr.tif"
+        grn = f"{start_time}.grn.tif"
         rgb = f"{start_time}.rgb.tif"
         out = f"{start_time}.tif"       # _or_ self.output
 
@@ -68,12 +68,19 @@ class FetchGOES(object):
             print(f"Composing nr, blu to grn")
             preprocess(nr, blu, grn, '4:8')
 
+        os.remove(nr)
+        os.remove(nir)
+
         # TODO convert to rasterio API calls
         command = ['rio', 'stack', '--overwrite', '--rgb', '--co',
                    'compress=lzw', red, grn, blu, rgb]
         if self.file_missing(rgb):
             print(f"Stacking bands")
             subprocess.run(command, cwd=cwd)
+
+        os.remove(red)
+        os.remove(grn)
+        os.remove(blu)
 
         # TODO replace convert with rio (?)
         command = ['convert', '-gamma', '1.5', '-sigmoidal-contrast', '10,10%',
