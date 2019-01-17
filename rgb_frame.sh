@@ -2,19 +2,19 @@
 
 set -eux
 
-frame=$1
-#band=$(printf "%02d" $2)
-year=$2
-doy=$(printf "%03d" $((10#$3)))
-hour=$4
-minute=$5
-dst_path=$6
+sat=$1
+frame=$2
+year=$3
+doy=$(printf "%03d" $((10#$4)))
+hour=$5
+minute=$6
+dst_path=$7
 
 start_time="$year$doy$hour$minute"
 
-blu=`./list-prefix.sh $frame 1 $year $doy $hour $minute`
-red=`./list-prefix.sh $frame 2 $year $doy $hour $minute`
-nir=`./list-prefix.sh $frame 3 $year $doy $hour $minute`
+blu=`./list-prefix.sh $sat $frame 1 $year $doy $hour $minute`
+red=`./list-prefix.sh $sat $frame 2 $year $doy $hour $minute`
+nir=`./list-prefix.sh $sat $frame 3 $year $doy $hour $minute`
 
 ./get.sh $blu $start_time.blu.nc
 ./get.sh $red $start_time.red.nc
