@@ -52,12 +52,13 @@ height, width = src.shape[:2]
 
 # The raw files have odd shapes, so we set some odd block
 # sizes. TODO: test different block sizes and clean this up.
-bs = 500 * 2
+bs = 500
 if width % bs != 0:
     bs = 904
 if width in (10848, 21696):
     bs = 678 * 2
 
+#print(f'width: {width}, height: {height}, bs: {bs}')
 assert width % bs == 0
 assert height % bs == 0
 
